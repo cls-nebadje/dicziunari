@@ -101,7 +101,8 @@ def read0x200():
         
         pos = rnd(pos + esize, 0x400)
         
-    print "Entries:", len(parser.entries)
+    print "Entries:   ", len(parser.entries)
+    print "Collisions:", parser.collisions
         
 read0x200()
 

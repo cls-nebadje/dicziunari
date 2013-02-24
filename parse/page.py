@@ -5,24 +5,21 @@ import struct, time, sys
 
 class Parser:
     def __init__(self):
-        self.entries = {}
-        
-    def handle01ff05(self, data):
-        print "Detected 0x01ff05 block"
-    
-    
+        self.entries = dict()
+        self.collisions = []
     def dicziunari(self, data, etype):
         
         if etype == 0x0000:
             pos = 0
             L = len(data)
             
-            while pos < L and 0xC0 != ord(data[pos]):
+            # At least 4 bytes are required to read the row ID
+            while pos < L-4 and 0xC0 != ord(data[pos]):
                 rowId, = struct.unpack_from(">I", data, pos)
                 pos += 0x04
                 
-                rowCount = self.entries.get(rowId, 0)
-                self.entries[rowId] = rowCount + 1
+                entry = self.entries.get(rowId, {})
+                self.entries[rowId] = entry
                 
                 while pos < L:
                     col, = struct.unpack_from(">B", data, pos)
@@ -59,12 +56,18 @@ class Parser:
                                 pos += 0x01
                         continue
                     
-                    if col == 0x01:
+                    if col == 0x01: # Those magic 01ff05 blocks which seem to have a constant length of 89
                         ff, five = struct.unpack_from(">BB", data, pos)
                         if ff == 0xff and five == 0x05:
-                            self.handle01ff05(data[pos-1:])
-                            pos = L
-                            break
+                            if 0:
+                                pos += 89 - 1 # -1 because we already read one
+                            else:
+                                npos = data.find("\xc0\xc0", pos)
+                                if npos == -1:  # probably end of page
+                                    pos = L
+                                else:
+                                    pos = npos + 2
+                            continue
         
                     clen, = struct.unpack_from(">B", data, pos)            
                     pos += 1
@@ -73,6 +76,13 @@ class Parser:
                     pos += clen
         
                     content = content.decode('mac-roman')
+                    col = chr(col).decode('mac-roman')
+                    if col in entry:
+                        if content not in "xxx":
+                            self.collisions.append([rowId, col, content])
+                            print "Entry collision: %x %s %s" % (rowId, col, content)
+                    entry[col] = content
+
 #                    print "%x : %c : %s" % (rowId, col, content)
         else:
             print "Unknown table entry type: %x" % etype
