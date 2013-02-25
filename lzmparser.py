@@ -11,7 +11,7 @@ class Parser:
     dictionariPageCode = 0xc105
     
     def __init__(self, filePath):
-        f = open("Vallader.lzm", "r")
+        f = open(filePath, "r")
         self.fileData = f.read()
         f.close()
         self.entries = {}
@@ -132,3 +132,4 @@ class Parser:
             for col in row:
                 cols.add(col)
         return cols
+

@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # coding=utf-8
 
-import commands, os, sys, argparse, time
+import commands, os, sys, argparse, time, sqlite3
 from lzmparser import Parser
 
 def main():
@@ -10,24 +10,34 @@ def main():
     
     ap = argparse.ArgumentParser()
     apDictSelectGroup = ap.add_mutually_exclusive_group()
-    apDictSelectGroup.add_argument("-p", "--puter", action='store_true', help="operar cul puter dicziunari")
-    apDictSelectGroup.add_argument("-v", "--vallader", action='store_true', help="operar cul vallader dicziunari (default)")
-    ap.add_argument("-s", "--sqlite", action='store_true', help="crea SQLite banca da datas")
+    apDictSelectGroup.add_argument("-p", "--puter", action='store_true', help="lavurar cul puter dicziunari")
+    apDictSelectGroup.add_argument("-v", "--vallader", action='store_true', help="lavurar cul vallader dicziunari (cas standard)")
+    anaSqlGrp = ap.add_mutually_exclusive_group()
+    anaSqlGrp.add_argument("-a", "--analisar", action='store_true', help="be analisa la veglia banca da datas")
+    anaSqlGrp.add_argument("-s", "--sqlite", action='store_true', help="crea SQLite banca da datas")
+    anaSqlGrp.add_argument("-t", "--tscherchar", help="tschercha alch aint illa nouva banca da datas")
     args = ap.parse_args()
     
     if args.puter:
         dPath = "./Puter.lzm"
     else:
         dPath = "./Vallader.lzm"
-    
-    parser = parse(dPath)
+        
+    dbPath = None
+    if dbPath is None:
+        dbPath = os.path.splitext(dPath)[0] + ".db"
     
     if args.sqlite:
-        dbPath = os.path.splitext(dPath)[0] + ".db"
+        parser = parse(dPath)
         createSQLite(dbPath, parser)
+    elif args.analisar:
+        parser = parse(dPath)        
+        
+    if args.tscherchar:
+        query(dbPath, args.tscherchar)
 
 def parse(dicziunariPath):
-    parser = Parser("Vallader.lzm")
+    parser = Parser(dicziunariPath)
     parser.parseFile()
         
     print "Entries:   ", len(parser.entries)
@@ -37,10 +47,20 @@ def parse(dicziunariPath):
     print "Columns:   ", len(cols), ", ".join(["'%s'" % c for c in cols])
     return parser
 
+def query(sqliteDbPath, query):
+    if not os.path.exists(sqliteDbPath):
+        print >> sys.stderr, "%s not found. Refer to -h for further information."
+    conn = sqlite3.connect(sqliteDbPath)
+    cursor = conn.cursor()
+    
+    sql = "SELECT m, n FROM dicziunari WHERE m LIKE '%%%s%%' OR n LIKE '%%%s%%'" % (query, query)
+    cursor.execute(sql)
+    res = cursor.fetchall()
+    for m, n, in res:
+        print "  %35s : %-35s" % (m, n)
 
-def createSQLite(sqliteDbPath, parser, tableName = "dicziunari"):    
+def createSQLite(sqliteDbPath, parser, tableName = "dicziunari"):
     # http://www.blog.pythonlibrary.org/2012/07/18/python-a-simple-step-by-step-sqlite-tutorial/
-    import sqlite3
     
     if os.path.exists(sqliteDbPath):
         commands.getstatusoutput('rm -f "%s"' % sqliteDbPath)
