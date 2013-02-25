@@ -80,8 +80,10 @@ class Parser:
                     # 0x00334010 0xc1 0x0f 0xc2
                     # 0x0098a000 0xc1 0x05 0xc0
                     # 0x017d5c00 0xc1 0x12 0xc0
+                    # 0x0213f4de 0xc1 0x02
+                    # 0x019bae63 0xc1 0x16
                     a, b = struct.unpack_from(">BB", data, pos)
-                    if a in [0x0b, 0x05, 0x0f, 0x12]:
+                    if a in [0x05, 0x02, 0x0b, 0x0f, 0x12, 0x16]:
                         if b == 0xc0:
                             pos += 0x02
                         elif b == 0xc2: # Unknown data block following (for examples see above)
@@ -91,17 +93,16 @@ class Parser:
                             pos += 0x01
                     continue
                 
-                if col == 0x01: # Those magic 01ff05 blocks which seem to have a constant length of 89
-                    ff, five = struct.unpack_from(">BB", data, pos)
-                    if ff == 0xff and five == 0x05:
-                        if 0:
-                            pos += 89 - 1 # -1 because we already read one
+                if col == 0x01:
+                    # Those magic 01ff05 blocks which seem to have a constant
+                    # length of 89 but actually haven't :/
+                    ab = struct.unpack_from(">BB", data, pos)
+                    if ab == (0xff, 0x05):
+                        npos = data.find("\xc0\xc0", pos)
+                        if npos == -1:  # probably end of page
+                            pos = L
                         else:
-                            npos = data.find("\xc0\xc0", pos)
-                            if npos == -1:  # probably end of page
-                                pos = L
-                            else:
-                                pos = npos + 2
+                            pos = npos + 2
                         continue
     
                 clen, = struct.unpack_from(">B", data, pos)            
@@ -111,11 +112,23 @@ class Parser:
                 pos += clen
     
                 content = content.decode('mac-roman')
-                col = chr(col).decode('mac-roman')
+                ecol = chr(col).decode('mac-roman')
+#                if ecol not in ['A', 'B', 'E', 'D', 'G', 'I', 'H', 'K', 'J', 'L', 'O', 'N', 'Q', 'P', 'S', 'R', 'T', 'W', 'V', 'X', '_', '^', 'e', 'd', 'k', 'j', 'm', 'n']:
+#                    print repr(ecol)
+#                    print pos
+#                    print content
+#                    time.sleep(3)
+#                
                     
-                if col in entry:
+                if ecol in entry:
                     if content not in "xxx":
-                        self.collisions.append([rowId, col, [content, entry[col]]])
-                        print "Entry collision: %x %s %s" % (rowId, col, content)
-                entry[col] = content
+                        self.collisions.append([rowId, ecol, [content, entry[ecol]]])
+                        print "Entry collision: %x %s %s" % (rowId, ecol, content)
+                entry[ecol] = content
 
+    def getColumns(self):
+        cols = set()
+        for _rowId, row in self.entries.items():
+            for col in row:
+                cols.add(col)
+        return cols
