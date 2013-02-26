@@ -71,6 +71,8 @@ def createSQLite(sqliteDbPath, parser, tableName = "dicziunari"):
     cols = parser.getColumns()
     C = len(cols)
     colMap = {'address':'address',
+              'A': 'aa', # vallader
+              'C': 'cc', # puter
               'B': 'bb',
               'E': 'ee',
               'D': 'dd',
@@ -99,10 +101,6 @@ def createSQLite(sqliteDbPath, parser, tableName = "dicziunari"):
               'm': 'm',
               'n': 'n',
               }
-    if u"C" in cols:    # puter case
-        colMap['C'] = 'cc'
-    else:
-        colMap['A'] = 'aa'
 
     
     # create a table
