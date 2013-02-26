@@ -56,11 +56,7 @@ class Parser:
             while pos < L:
                 col, = struct.unpack_from(">B", data, pos)
                 pos += 1
-                
-                if col == 0x00: # hack because of page data length problem
-                    pos = L
-                    break
-                
+
                 if col == 0xC0:
                     if pos < L:
                         tmp, = struct.unpack_from(">B", data, pos)
@@ -97,7 +93,7 @@ class Parser:
                         else:
                             continue
 
-                if col == 0x01:
+                elif col == 0x01:
                     # Those magic 01ff05 blocks which seem to have a constant
                     # length of 89 but actually haven't :/
                     ab = struct.unpack_from(">BB", data, pos)
@@ -109,14 +105,7 @@ class Parser:
                             pos = npos + 2
                         continue
     
-                try:
-                    clen, = struct.unpack_from(">B", data, pos)
-                except:
-                    print hex(col), L, pos
-                    print entry
-                    pos = L
-                    time.sleep(5)
-                    break
+                clen, = struct.unpack_from(">B", data, pos)
                 pos += 1
                 
                 content = data[pos:pos+clen]
@@ -124,13 +113,6 @@ class Parser:
     
                 content = content.decode('mac-roman')
                 ecol = chr(col).decode('mac-roman')
-                if  ecol  in [',', '1', '0', '3', '2', '5', '4', '7', '6', '8',]:
-                    print repr(ecol)
-                    print pos
-                    print content
-                    print entry
-                    time.sleep(3)
-                
                     
                 if ecol in entry:
                     if content not in "xxx":
