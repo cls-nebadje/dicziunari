@@ -71,7 +71,6 @@ def createSQLite(sqliteDbPath, parser, tableName = "dicziunari"):
     cols = parser.getColumns()
     C = len(cols)
     colMap = {'address':'address',
-              'A': 'aa',
               'B': 'bb',
               'E': 'ee',
               'D': 'dd',
@@ -98,7 +97,13 @@ def createSQLite(sqliteDbPath, parser, tableName = "dicziunari"):
               'k': 'k',
               'j': 'j',
               'm': 'm',
-              'n': 'n',}
+              'n': 'n',
+              }
+    if u"C" in cols:    # puter case
+        colMap['C'] = 'cc'
+    else:
+        colMap['A'] = 'aa'
+
     
     # create a table
     colList = ", ".join([colMap[c] for c in cols])
@@ -125,9 +130,9 @@ def makeDicziunarisReady():
         (s, o) = commands.getstatusoutput("openssl aes-256-cbc -d -in dicziunaris.tar.bz2.aes |"
                                           "tar xjf -")
         if s != 0:
-            print >> sys.stderr, "Eu n'ha gnü ün problem da dechiffrar ils dicziunaris: %s (%i)" % (o, s)
+            print >> sys.stderr, "Eu n'ha gnü ün problem da decifrar ils dicziunaris: %s (%i)" % (o, s)
             sys.exit(1)
-        print "Ueilà, ils dicziunaris sun pronts a maldüsar!"
+        print "Ueilà! ils vegls e sgrischaivels dicziunaris sun pronts ad abüsar!"
 
 if __name__ == "__main__":
     main()
