@@ -36,7 +36,8 @@ def main():
         
     if args.tscherchar:
         query(dbPath, args.tscherchar)
-    if len(args.lingias) > 0:
+
+    if args.lingias:
         query(dbPath, args.lingias, raw=True)
 
 def parse(dicziunariPath):
