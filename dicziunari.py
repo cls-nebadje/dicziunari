@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # coding=utf-8
 
-import commands, os, sys, argparse, time, sqlite3
+import commands, os, sys, argparse, time, sqlite3, re, ast
 from lzmparser import Parser
 
 def main():
@@ -17,6 +17,7 @@ def main():
     anaSqlGrp.add_argument("-s", "--sqlite", action='store_true', help="crea SQLite banca da datas")
     anaSqlGrp.add_argument("-t", "--tscherchar", help="tschercha alch aint illa nouva banca da datas")
     anaSqlGrp.add_argument("-l", "--lingias", help="tschercha alch aint illa nouva banca da datas ma muossa las crüjas lingias")
+    ap.add_argument("-c", "--culuonnas", type=dictArg, help="selecziuna las culuonnas chi ston esser inclus aint illa nouve banca da datas. per exaimpel \"{m:wort,n:pled}\"")
     args = ap.parse_args()
     
     if args.puter:
@@ -27,10 +28,10 @@ def main():
     dbPath = None
     if dbPath is None:
         dbPath = os.path.splitext(dPath)[0] + ".db"
-    
+        
     if args.sqlite:
         parser = parse(dPath)
-        createSQLite(dbPath, parser)
+        createSQLite(dbPath, parser, colSelect=args.culuonnas)
     elif args.analisar:
         parser = parse(dPath)        
         
@@ -75,7 +76,7 @@ def query(sqliteDbPath, query, raw=False):
             print "  %35s : %-35s" % (m, n)
         
 
-def createSQLite(sqliteDbPath, parser, tableName = "dicziunari"):
+def createSQLite(sqliteDbPath, parser, tableName = "dicziunari", colSelect=None):
     # http://www.blog.pythonlibrary.org/2012/07/18/python-a-simple-step-by-step-sqlite-tutorial/
     
     if os.path.exists(sqliteDbPath):
@@ -117,8 +118,21 @@ def createSQLite(sqliteDbPath, parser, tableName = "dicziunari"):
               'm': 'm',     # Tudais-ch
               'n': 'n',     # Rumantsch
               }
-
-    
+    # Remap columns on request
+    if colSelect:
+        if len(colSelect) == 0:
+            print >> sys.stderr, 'culuonnas dicziunari es vöd.'
+            sys.exit(1)
+        m = {}
+        for k, v in colSelect.items():
+            if k not in colMap:
+                print >> sys.stderr, 'culuonna "%s" nö exsista.'
+                sys.exit(1)
+            m[k] = v
+        cols = m.keys()
+        C = len(cols)
+        colMap = m
+        
     # create a table
     colList = ", ".join([colMap[c] for c in cols])
     cursor.execute(u"\n".join(["CREATE TABLE %s\n" % tableName,
@@ -136,6 +150,9 @@ def createSQLite(sqliteDbPath, parser, tableName = "dicziunari"):
                                                        ", ".join(["?" for _ in range(C+1)])),
                        rows)
     conn.commit()
+    cursor.execute('ANALYZE')
+    cursor.execute('VACUUM')
+    conn.commit()
     
 def makeDicziunarisReady():
     # Encryption: openssl aes-256-cbc -in dicziunaris.tar.bz2 -out dicziunaris.tar.bz2.aes
@@ -147,6 +164,21 @@ def makeDicziunarisReady():
             print >> sys.stderr, "Eu n'ha gnü ün problem da decifrar ils dicziunaris: %s (%i)" % (o, s)
             sys.exit(1)
         print "Ueilà! ils vegls e sgrischaivels dicziunaris sun pronts ad abüsar!"
+
+_DICT_RE = re.compile(r"([^:{,]*):([^:,}]*)")
+
+def dictArg(argstr):
+    try:
+          argstr = _DICT_RE.sub(r'"\1":"\2"', argstr)
+    except Exception as e:
+        raise argparse.ArgumentTypeError('Argument "%s" doesn\'t seem to be a dictionary: %s' % (argstr, str(e)))
+    try:
+        arg = ast.literal_eval(argstr)
+    except Exception as e:
+        raise argparse.ArgumentTypeError('Argument "%s" doesn\'t seem to be a dictionary: %s' % (argstr, str(e)))
+    if not isinstance(arg, dict):
+        raise argparse.ArgumentTypeError('Argument "%s" doesn\'t seem to be a dictionary.' % (argstr))
+    return arg
 
 if __name__ == "__main__":
     main()
