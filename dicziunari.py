@@ -1,8 +1,8 @@
 #!/usr/bin/python
 # coding=utf-8
 #
-# Dicziunari - A collection of linguistic tools for the Rhaeto-Romance
-#              language
+# Dicziunari -- A collection of linguistic tools for the Rhaeto-Romance
+#               language
 # 
 # Copyright (C) 2012-2013 Uli Franke (cls) et al.
 #
