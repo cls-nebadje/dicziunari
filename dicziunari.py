@@ -4,6 +4,10 @@
 import commands, os, sys, argparse, time, sqlite3, re, ast
 from lzmparser import Parser
 
+DB_SRC_FILE_VALLADER = "Vallader.lzm"
+DB_SRC_FILE_PUTER    = "Puter.lzm"
+DB_SRC_FILE_GRISCHUN = "Grischun.usr"
+
 def main():
     print "Trar oura pleds (TOP) 1.0 copyright (c) 2012-%s cls et al." % time.strftime("%Y")
     makeDicziunarisReady()
@@ -27,11 +31,11 @@ def main():
         return
     
     if args.puter:
-        dPath = "./Puter.lzm"
+        dPath = DB_SRC_FILE_PUTER
     elif args.grischun:
-        dPath = "./Grischun.usr"
+        dPath = DB_SRC_FILE_GRISCHUN
     else:
-        dPath = "./Vallader.lzm"
+        dPath = DB_SRC_FILE_VALLADER
         
     dbPath = None
     if dbPath is None:
@@ -60,19 +64,33 @@ def parse(dicziunariPath):
     print "Columns:   ", len(cols), ", ".join(["'%s'" % c for c in cols])
     return parser
 
+DB_OUT_TABLE_NAME = "dicziunari"
+
 def query(sqliteDbPath, query, raw=False):
     if not os.path.exists(sqliteDbPath):
         print >> sys.stderr, "%s not found. Refer to -h for further information."
     conn = sqlite3.connect(sqliteDbPath)
     cursor = conn.cursor()
     
+    querySql = "%%%s%%" % query.decode("utf-8")
+    
     if raw:
-        cursor.execute("PRAGMA table_info(dicziunari)")
+        columns = "*"
+        cursor.execute("PRAGMA table_info(%s)" % DB_OUT_TABLE_NAME)
         cols = cursor.fetchall()
-        sql = "SELECT * FROM dicziunari WHERE m LIKE '%%%s%%' OR n LIKE '%%%s%%'" % (query, query)
+    if pathRelatedSrc(sqliteDbPath, DB_SRC_FILE_GRISCHUN):
+        primColDeu = "bb"
+        primColRum = "ii"
+        if not raw:
+            columns = "bb, ii"
     else:
-        sql = "SELECT m, n FROM dicziunari WHERE m LIKE '%%%s%%' OR n LIKE '%%%s%%'" % (query, query)
-    cursor.execute(sql)
+        primColDeu = "m"
+        primColRum = "n"
+        if not raw:
+            columns = "m, n"
+    sql = "SELECT %s FROM %s WHERE %s LIKE ? OR %s LIKE ?" % \
+          (columns, DB_OUT_TABLE_NAME, primColDeu, primColRum)
+    cursor.execute(sql, [querySql, querySql])
     res = cursor.fetchall()
     if raw:
         for row in res:
@@ -82,9 +100,11 @@ def query(sqliteDbPath, query, raw=False):
     else:
         for m, n, in res:
             print "  %35s : %-35s" % (m, n)
-        
 
-def createSQLite(sqliteDbPath, parser, tableName = "dicziunari", colSelect=None):
+def pathRelatedSrc(path, src):
+    return os.path.splitext(src)[0] in path
+
+def createSQLite(sqliteDbPath, parser, colSelect=None):
     # http://www.blog.pythonlibrary.org/2012/07/18/python-a-simple-step-by-step-sqlite-tutorial/
     
     if os.path.exists(sqliteDbPath):
@@ -95,37 +115,63 @@ def createSQLite(sqliteDbPath, parser, tableName = "dicziunari", colSelect=None)
      
     cols = parser.getColumns()
     C = len(cols)
-    colMap = {'address':'address',
-              'A': 'aa', # vallader only
-              'C': 'cc', # puter only
-              'B': 'bb',    # Stichwort key (rumantsch)
-              'E': 'ee',
-              'D': 'dd',
-              'G': 'gg',
-              'I': 'ii',    # bereich (rumantsch)
-              'H': 'hh',    # a), 2. (rumantsch)
-              'K': 'kk',
-              'J': 'jj',
-              'L': 'll',    # gener (rumantsch)
-              'O': 'oo',
-              'N': 'nn',
-              'Q': 'qq',
-              'P': 'pp',
-              'S': 'ss',
-              'R': 'rr',    # bereich (tudais-ch)
-              'T': 'tt',    # plural/variazionen/deklinationen
-              'W': 'ww',    # gener (tudais-ch)
-              'V': 'vv',    # Stichwort key Deutsch
-              'X': 'xx',
-              '_': 'us',    # Wortgruppe Rumantsch
-              '^': 'zf',    # Wortgruppe Deutsch
-              'e': 'e',
-              'd': 'd',
-              'k': 'k',     # Duplicat Rumantsch (ma perche?)
-              'j': 'j',     # Duplicat Tudais-ch (ma perche?)
-              'm': 'm',     # Tudais-ch
-              'n': 'n',     # Rumantsch
-              }
+    if pathRelatedSrc(sqliteDbPath, DB_SRC_FILE_GRISCHUN):
+        colMap = {'address':'address',
+                  'A': 'aa',
+                  'B': 'bb',    # deutsch
+                  'C': 'cc',    # key deutsch
+                  'D': 'dd',    # geschlecht
+                  'E': 'ee',    # grammatik deutsch
+                  'F': 'ff',
+                  'G': 'gg',    # annotation deutsch
+                  'I': 'ii',    # rumantsch
+                  'J': 'jj',    # key rumantsch
+                  'K': 'kk',    # geschlecht
+                  'L': 'll',    # grammatica rumantscha
+                  'M': 'mm',
+                  'N': 'nn',
+                  'O': 'oo',
+                  'P': 'pp',
+                  'Q': 'qq',    # annotaziun rumantsch
+                  'R': 'rr',
+                  'S': 'ss',
+                  'V': 'vv',
+                  'm': 'm', 
+                  'n': 'n',     # datum
+                  'u': 'u',     # ID
+                  }
+    else:
+        colMap = {'address':'address',
+                  'A': 'aa', # vallader only
+                  'C': 'cc', # puter only
+                  'B': 'bb',    # Stichwort key (rumantsch)
+                  'E': 'ee',
+                  'D': 'dd',
+                  'G': 'gg',
+                  'I': 'ii',    # bereich (rumantsch)
+                  'H': 'hh',    # a), 2. (rumantsch)
+                  'K': 'kk',
+                  'J': 'jj',
+                  'L': 'll',    # gener (rumantsch)
+                  'O': 'oo',
+                  'N': 'nn',
+                  'Q': 'qq',
+                  'P': 'pp',
+                  'S': 'ss',
+                  'R': 'rr',    # bereich (tudais-ch)
+                  'T': 'tt',    # plural/variazionen/deklinationen
+                  'W': 'ww',    # gener (tudais-ch)
+                  'V': 'vv',    # Stichwort key Deutsch
+                  'X': 'xx',
+                  '_': 'us',    # Wortgruppe Rumantsch
+                  '^': 'zf',    # Wortgruppe Deutsch
+                  'e': 'e',
+                  'd': 'd',
+                  'k': 'k',     # Duplicat Rumantsch (ma perche?)
+                  'j': 'j',     # Duplicat Tudais-ch (ma perche?)
+                  'm': 'm',     # Tudais-ch
+                  'n': 'n',     # Rumantsch
+                  }
     # Remap columns on request
     if colSelect:
         if len(colSelect) == 0:
@@ -143,7 +189,7 @@ def createSQLite(sqliteDbPath, parser, tableName = "dicziunari", colSelect=None)
         
     # create a table
     colList = ", ".join([colMap[c] for c in cols])
-    cursor.execute(u"\n".join(["CREATE TABLE %s\n" % tableName,
+    cursor.execute(u"\n".join(["CREATE TABLE %s\n" % DB_OUT_TABLE_NAME,
                                "(id, " + colList + ")",
                                ])
                    + "\n")
