@@ -56,7 +56,9 @@ class Parser:
             while pos < L:
                 col, = struct.unpack_from(">B", data, pos)
                 pos += 1
-
+                
+                colLen = 1  # Col len in bytes
+                
                 if col == 0xC0:
                     if pos < L:
                         tmp, = struct.unpack_from(">B", data, pos)
@@ -77,16 +79,22 @@ class Parser:
                     # 0x017d5c00 0xc1 0x12 0xc0
                     # 0x0213f4de 0xc1 0x02
                     # 0x019bae63 0xc1 0x16
+                    # 0x0615c880 0xc1 0x2D 0xff    (pledari grond)
                     a, = struct.unpack_from(">B", data, pos)
                     pos += 1
 
-                    if a in [0x05, 0x02, 0x0b, 0x0f, 0x12, 0x16]:
+                    if a in [0x05, 0x02, 0x0b, 0x0f, 0x12, 0x16, 0x2d]:
                         if pos == L:
                             break
                         b, = struct.unpack_from(">B", data, pos)
                         if b == 0xc0:
                             pos += 1
                             continue
+                        elif b == 0xff: # Long string field (pledari grond)
+                            pos += 1
+                            col, = struct.unpack_from(">B", data, pos)
+                            pos += 1
+                            colLen = 2
                         elif b == 0xc2: # Unknown data block following (for examples see above)
                             pos = L
                             break
@@ -104,16 +112,36 @@ class Parser:
                         else:
                             pos = npos + 2
                         continue
-    
-                clen, = struct.unpack_from(">B", data, pos)
-                pos += 1
-                
+                    elif ab == (0xfc, 0x05): # 0x01 fc 05 blocks (pledari grond)
+                        npos = data.find("\xc0", pos)
+                        if npos == -1:  # probably end of page
+                            pos = L
+                        else:
+                            pos = npos + 1
+                        break
+                elif col == 0x02:   # pledari grond
+                    # 027ad1f0 0x02 01 02 03 S23
+                    # 01d26d70 0x02 01 02 04 INST
+                    abc = struct.unpack_from(">BBB", data, pos)
+                    pos += 3 + abc[2]
+                    continue
+                                
+                if colLen == 1:
+                    clen, = struct.unpack_from(">B", data, pos)
+                    pos += 1
+                elif colLen == 2:
+                    clen, = struct.unpack_from(">H", data, pos)
+                    pos += 2
+                else:
+                    print "Unhandled col length: %i @ %i" % (colLen, pos)
+                    sys.exit(1)
+                                    
                 content = data[pos:pos+clen]
                 pos += clen
     
                 content = content.decode('mac-roman')
                 ecol = chr(col).decode('mac-roman')
-                    
+                
                 if ecol in entry:
                     if content not in "xxx":
                         self.collisions.append([rowId, ecol, [content, entry[ecol]]])

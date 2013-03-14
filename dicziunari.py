@@ -12,16 +12,24 @@ def main():
     apDictSelectGroup = ap.add_mutually_exclusive_group()
     apDictSelectGroup.add_argument("-p", "--puter", action='store_true', help="lavurar cul puter dicziunari")
     apDictSelectGroup.add_argument("-v", "--vallader", action='store_true', help="lavurar cul vallader dicziunari (cas standard)")
+    apDictSelectGroup.add_argument("-g", "--grischun", action='store_true', help="lavurar cul rumantsch grischun dicziunari")
     anaSqlGrp = ap.add_mutually_exclusive_group()
     anaSqlGrp.add_argument("-a", "--analisar", action='store_true', help="be analisa la veglia banca da datas")
     anaSqlGrp.add_argument("-s", "--sqlite", action='store_true', help="crea SQLite banca da datas")
     anaSqlGrp.add_argument("-t", "--tscherchar", help="tschercha alch aint illa nouva banca da datas")
     anaSqlGrp.add_argument("-l", "--lingias", help="tschercha alch aint illa nouva banca da datas ma muossa las crüjas lingias")
     ap.add_argument("-c", "--culuonnas", type=dictArg, help="selecziuna las culuonnas chi ston esser inclus aint illa nouve banca da datas. per exaimpel \"{m:wort,n:pled}\"")
+    ap.add_argument("--ciffra", action='store_true', help="tar e ciffra ils dicziunaris")
     args = ap.parse_args()
+    
+    if args.ciffra:
+        packAndEncryptDicziunaris()
+        return
     
     if args.puter:
         dPath = "./Puter.lzm"
+    elif args.grischun:
+        dPath = "./Grischun.usr"
     else:
         dPath = "./Vallader.lzm"
         
@@ -153,6 +161,21 @@ def createSQLite(sqliteDbPath, parser, tableName = "dicziunari", colSelect=None)
     cursor.execute('ANALYZE')
     cursor.execute('VACUUM')
     conn.commit()
+
+def packAndEncryptDicziunaris():
+    print "Cumprimer dicziunaris..."
+    (s, o) = commands.getstatusoutput("tar cjf dicziunaris.tar.bz2 *.lzm *.usr")
+    if s != 0:
+        print "Errur dürant cumprimer ils dicziunaris: %s (%i)" % (o, s)
+        return
+    (s, o) = commands.getstatusoutput("openssl aes-256-cbc -in dicziunaris.tar.bz2 -out dicziunaris.tar.bz2.aes")
+    if s != 0:
+        print "Errur dürant ciffrar ils dicziunaris: %s (%i)" % (o, s)
+        return
+    (s, o) = commands.getstatusoutput("rm dicziunaris.tar.bz2")
+    if s != 0:
+        print "Errur rumir sü davo ciffrar ils dicziunaris: %s (%i)" % (o, s)
+        return
     
 def makeDicziunarisReady():
     # Encryption: openssl aes-256-cbc -in dicziunaris.tar.bz2 -out dicziunaris.tar.bz2.aes
@@ -169,7 +192,7 @@ _DICT_RE = re.compile(r"([^:{,]*):([^:,}]*)")
 
 def dictArg(argstr):
     try:
-          argstr = _DICT_RE.sub(r'"\1":"\2"', argstr)
+        argstr = _DICT_RE.sub(r'"\1":"\2"', argstr)
     except Exception as e:
         raise argparse.ArgumentTypeError('Argument "%s" doesn\'t seem to be a dictionary: %s' % (argstr, str(e)))
     try:
