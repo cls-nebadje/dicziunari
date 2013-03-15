@@ -165,6 +165,12 @@ def createSQLite(sqliteDbPath, parser, colSelect=None):
                   'n': 'n',     # datum
                   'u': 'u',     # ID
                   }
+        def colProcess(key, value):
+            if isinstance(value, (str, unicode)):
+                value = value.strip()
+                if key in ['G', 'Q']:
+                    value = re.sub(r'^\((.*)\)$', r'\1', value)
+            return value
     else:
         colMap = {'address':'address',
                   'A': 'aa', # vallader only
@@ -197,6 +203,10 @@ def createSQLite(sqliteDbPath, parser, colSelect=None):
                   'm': 'm',     # Tudais-ch
                   'n': 'n',     # Rumantsch
                   }
+        def colProcess(key, value):
+            if isinstance(value, (str, unicode)):
+                value = value.strip()
+            return value
     # Remap columns on request
     if colSelect:
         if len(colSelect) == 0:
@@ -223,9 +233,11 @@ def createSQLite(sqliteDbPath, parser, colSelect=None):
         row = []
         row.append(rowId)
         for c in cols:
-            row.append(entry.get(c, u""))
+            colData = entry.get(c, None)
+            colData = colProcess(c, colData)
+            row.append(colData)
         rows.append(tuple(row))
-    cursor.executemany("INSERT INTO %s VALUES (%s)" % (tableName,
+    cursor.executemany("INSERT INTO %s VALUES (%s)" % (DB_OUT_TABLE_NAME,
                                                        ", ".join(["?" for _ in range(C+1)])),
                        rows)
     conn.commit()
