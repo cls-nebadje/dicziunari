@@ -215,7 +215,7 @@ def createSQLite(sqliteDbPath, parser, colSelect=None):
         m = {}
         for k, v in colSelect.items():
             if k not in colMap:
-                print >> sys.stderr, 'culuonna "%s" nö exsista.'
+                print >> sys.stderr, 'culuonna "%s" nö exsista.' % k
                 sys.exit(1)
             m[k] = v
         cols = m.keys()
